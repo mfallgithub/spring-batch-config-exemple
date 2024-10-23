@@ -10,8 +10,10 @@ import org.springframework.batch.core.job.builder.FlowBuilder;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.job.flow.Flow;
 import org.springframework.batch.core.job.flow.JobExecutionDecider;
+import org.springframework.batch.core.listener.ExecutionContextPromotionListener;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,22 +42,34 @@ public class BatchConfiguration {
     public Step step1(JobRepository jobRepository, PlatformTransactionManager transactionManger) {
         return new StepBuilder("step1", jobRepository).tasklet((contribution, chunkContext) -> {
             System.out.println("step1 executed on threat " + Thread.currentThread().getName());
+            ExecutionContext jobExecutionContext = chunkContext.getStepContext().getStepExecution().getJobExecution().getExecutionContext();
+            System.out.println("Job Execution Context : " + jobExecutionContext);
+            //jobExecutionContext.put("sk1","ABC");
+            ExecutionContext stepExecutionContext = chunkContext.getStepContext().getStepExecution().getExecutionContext();
+            stepExecutionContext.put("sk1", "ABC");
             return RepeatStatus.FINISHED;
-        }, transactionManger).build();
+        }, transactionManger).listener(promotionListener()).build();
     }
 
     @Bean
     public Step step2(JobRepository jobRepository, PlatformTransactionManager transactionManger) {
         return new StepBuilder("step2", jobRepository).tasklet((contribution, chunkContext) -> {
             System.out.println("step2 executed on threat " + Thread.currentThread().getName());
+            ExecutionContext jobExecutionContext = chunkContext.getStepContext().getStepExecution().getJobExecution().getExecutionContext();
+            System.out.println("Job Execution Context : " + jobExecutionContext);
+            //jobExecutionContext.put("sk2","KLM");
+            ExecutionContext stepExecutionContext = chunkContext.getStepContext().getStepExecution().getExecutionContext();
+            stepExecutionContext.put("sk2", "TUV");
             return RepeatStatus.FINISHED;
-        }, transactionManger).build();
+        }, transactionManger).listener(promotionListener()).build();
     }
 
     @Bean
     public Step step3(JobRepository jobRepository, PlatformTransactionManager transactionManger) {
         return new StepBuilder("step3", jobRepository).tasklet((contribution, chunkContext) -> {
             System.out.println("step3 executed on threat " + Thread.currentThread().getName());
+            ExecutionContext jobExecutionContext = chunkContext.getStepContext().getStepExecution().getJobExecution().getExecutionContext();
+            System.out.println("Job Execution Context : " + jobExecutionContext);
             return RepeatStatus.FINISHED;
         }, transactionManger).listener(myStepExecutionListener()).build();
     }
@@ -147,11 +161,25 @@ public class BatchConfiguration {
     }
 
     @Bean
-    public Job job1(JobRepository jobRepository, Step step1, Step step2, Flow flow1) {
+    public StepExecutionListener promotionListener() {
+        ExecutionContextPromotionListener promotionListener = new ExecutionContextPromotionListener();
+        promotionListener.setKeys(new String[]{"sk1", "sk2"});
+        return promotionListener;
+    }
+
+
+    @Bean
+    public Job job1(JobRepository jobRepository, Step step1, Step step2, Step step3, Step step4, Step step5) {
         return new JobBuilder("job1", jobRepository)
+                .listener(myJobExecutionListener())
                 .start(step1)
                 .next(step2)
-                .on("COMPLETED").to(flow1)
+                .next(decider())
+                .on("STEP_3").to(step3)
+                .from(decider())
+                .on("STEP_4").to(step4)
+                .from(decider())
+                .on("STEP_5").to(step5)
                 .end()
                 .build();
     }

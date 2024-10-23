@@ -3,6 +3,7 @@ package com.springbatch.listener;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.annotation.AfterJob;
 import org.springframework.batch.core.annotation.BeforeJob;
+import org.springframework.batch.item.ExecutionContext;
 
 public class MyJobExecutionListener {
 
@@ -11,6 +12,8 @@ public class MyJobExecutionListener {
         System.out.println("Job name" + jobExecution.getJobInstance().getJobName());
         System.out.println("Job parameters" + jobExecution.getJobParameters());
         System.out.println("Job Start Time" + jobExecution.getStartTime());
+        ExecutionContext jobExecutionContext = jobExecution.getExecutionContext();
+        jobExecutionContext.put("jk1","XYZ");
     }
 
     @AfterJob
